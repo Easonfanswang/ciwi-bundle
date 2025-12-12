@@ -108,6 +108,7 @@ export default function Index() {
       shopify.toast.show("Product created");
     }
   }, [productId, shopify]);
+
   const generateProduct = () => fetcher.submit({}, { method: "POST" });
 
   return (
