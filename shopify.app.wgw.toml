@@ -1,16 +1,25 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
 client_id = "c39cadd79559cb62c51564f1a572632f"
 name = "Ciwi.ai:Bundle(LocalW)"
 application_url = "https://2c971c469ed8.ngrok.app"
 embedded = true
 
-[build]
-automatically_update_urls_on_dev = true
-dev_store_url = "ciwishop.myshopify.com"
+[webhooks]
+api_version = "2025-04"
+
+  [[webhooks.subscriptions]]
+  topics = [
+  "app_subscriptions/update",
+  "app_purchases_one_time/update",
+  "app/uninstalled"
+]
+  uri = "/webhooks"
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products"
+scopes = "write_discounts,write_products"
 
 [auth]
 redirect_urls = [
@@ -19,23 +28,8 @@ redirect_urls = [
   "https://2c971c469ed8.ngrok.app/api/auth/callback"
 ]
 
-[webhooks]
-api_version = "2025-04"
-
-[[webhooks.subscriptions]]
-uri = "/webhooks"
-
-topics = [
-  "app_purchases_one_time/update",
-  "app_subscriptions/update",
-  "app/uninstalled"
-]
-
-compliance_topics = [
-  "customers/data_request",
-  "customers/redact",
-  "shop/redact"
-]
-
 [pos]
 embedded = false
+
+[build]
+automatically_update_urls_on_dev = true
