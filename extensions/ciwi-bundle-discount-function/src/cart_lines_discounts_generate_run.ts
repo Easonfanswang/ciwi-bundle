@@ -4,14 +4,23 @@ import {
   ProductDiscountSelectionStrategy,
   CartInput,
   CartLinesDiscountsGenerateRunResult,
-} from '../generated/api';
+} from "../generated/api";
 
+//默认折扣规则
+const DEFAULT_RULE = {
+  groupSize: 3,
+  groupDiscount: 0.6,
+  remainder: {
+    "1": 1,
+    "2": 0.8,
+  },
+};
 
 export function cartLinesDiscountsGenerateRun(
   input: CartInput,
 ): CartLinesDiscountsGenerateRunResult {
   if (!input.cart.lines.length) {
-    return {operations: []};
+    return { operations: [] };
   }
 
   const hasOrderDiscountClass = input.discount.discountClasses.includes(
@@ -22,24 +31,17 @@ export function cartLinesDiscountsGenerateRun(
   );
 
   if (!hasOrderDiscountClass && !hasProductDiscountClass) {
-    return {operations: []};
+    return { operations: [] };
   }
 
-  const maxCartLine = input.cart.lines.reduce((maxLine, line) => {
-    if (line.cost.subtotalAmount.amount > maxLine.cost.subtotalAmount.amount) {
-      return line;
-    }
-    return maxLine;
-  }, input.cart.lines[0]);
-
-  const operations = [];
+  const operations: CartLinesDiscountsGenerateRunResult["operations"] = [];
 
   if (hasOrderDiscountClass) {
     operations.push({
       orderDiscountsAdd: {
         candidates: [
           {
-            message: '10% OFF ORDER',
+            message: "10% OFF ORDER",
             targets: [
               {
                 orderSubtotal: {
@@ -60,31 +62,92 @@ export function cartLinesDiscountsGenerateRun(
   }
 
   if (hasProductDiscountClass) {
-    operations.push({
-      productDiscountsAdd: {
-        candidates: [
-          {
-            message: '20% OFF PRODUCT',
-            targets: [
-              {
-                cartLine: {
-                  id: maxCartLine.id,
+    for (const line of input.cart.lines) {
+      if (line.merchandise.__typename !== "ProductVariant") continue;
+
+      const quantity = line.quantity;
+      if (quantity < 2) continue;
+
+      const unitPrice = Number(line.cost.amountPerQuantity.amount);
+
+      let rule = DEFAULT_RULE;
+
+      const metafieldValue = line.merchandise.product?.metafield?.value;
+
+      if (metafieldValue) {
+        try {
+          rule = {
+            ...DEFAULT_RULE,
+            ...JSON.parse(metafieldValue),
+          };
+        } catch {
+          // JSON 写错 → 静默回退默认规则
+          rule = DEFAULT_RULE;
+        }
+      }
+
+      const originalTotal = unitPrice * quantity;
+      const discountedTotal = calculateDiscountedTotal(
+        quantity,
+        unitPrice,
+        rule,
+      );
+
+      const totalDiscount = originalTotal - discountedTotal;
+
+      if (totalDiscount <= 0) continue;
+
+      const discountPerItem = totalDiscount / quantity;
+
+      operations.push({
+        productDiscountsAdd: {
+          candidates: [
+            {
+              message: "Bundle pricing applied",
+              targets: [
+                {
+                  cartLine: {
+                    id: line.id,
+                  },
+                },
+              ],
+              value: {
+                fixedAmount: {
+                  amount: discountPerItem.toFixed(2),
+                  appliesToEachItem: true,
                 },
               },
-            ],
-            value: {
-              percentage: {
-                value: 20,
-              },
             },
-          },
-        ],
-        selectionStrategy: ProductDiscountSelectionStrategy.First,
-      },
-    });
+          ],
+          selectionStrategy: ProductDiscountSelectionStrategy.First,
+        },
+      });
+    }
   }
 
-  return {
-    operations,
-  };
+  return { operations };
+}
+
+//计算折扣方法
+function calculateDiscountedTotal(
+  quantity: number,
+  unitPrice: number,
+  rule: {
+    groupSize: number;
+    groupDiscount: number;
+    remainder: Record<string, number>;
+  },
+) {
+  const groups = Math.floor(quantity / rule.groupSize);
+  const remainderQty = quantity % rule.groupSize;
+
+  let total = groups * rule.groupSize * unitPrice * rule.groupDiscount;
+
+  if (remainderQty > 0) {
+    const remainderDiscount = rule.remainder[String(remainderQty)] ?? 1;
+
+    total += remainderQty * unitPrice * remainderDiscount;
+  }
+
+  return total;
 }
