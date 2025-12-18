@@ -6,6 +6,8 @@ import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 
 import { authenticate } from "../shopify.server";
+import { useEffect, useState } from "react";
+import { Flex, Spin } from "antd";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
@@ -18,6 +20,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export default function App() {
   const { apiKey } = useLoaderData<typeof loader>();
 
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey}>
       <NavMenu>
@@ -25,7 +33,19 @@ export default function App() {
           Home
         </Link>
       </NavMenu>
-      <Outlet />
+      {isClient ? (
+        <Outlet />
+      ) : (
+        <Flex
+          align="center"
+          justify="center"
+          style={{
+            height: "100vh",
+          }}
+        >
+          <Spin />
+        </Flex>
+      )}
     </AppProvider>
   );
 }

@@ -9,12 +9,12 @@ import { createHead } from "remix-island";
 
 export default function App() {
   return (
-    <html>
+    <>
       <Head />
       <Outlet />
       <ScrollRestoration />
       <Scripts />
-    </html>
+    </>
   );
 }
 
